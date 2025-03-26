@@ -176,36 +176,48 @@ def implied_volatility(market_price, S, K, T, r, option_type='call', low_vol=1e-
 
 def plot_greeks(greek_func, S, K, T_days, r_pct, sigma_pct, option_type, plot_vs='Stock Price'):
     """ Generates Plotly figure for a Greek vs. Stock Price or Time """
-    T = T_days / 365.0
+    T = max(T_days, 1e-6) / 365.0 # Use the epsilon T here too
     r = r_pct / 100.0
     sigma = sigma_pct / 100.0
     greek_name = greek_func.__name__.capitalize()
 
     fig = go.Figure()
 
+    # --- CORRECTED LIST COMPREHENSIONS ---
     if plot_vs == 'Stock Price':
-        S_range = np.linspace(max(0.1, S * 0.7), S * 1.3, 100)  # Range around current S
+        S_range = np.linspace(max(0.1, S * 0.7), S * 1.3, 100)
         T_plot = T
-        greek_values = [greek_func(s_val, K, T_plot, r, sigma, option_type) if greek_name != 'Gamma'
-                        else greek_func(s_val, K, T_plot, r, sigma)
-                        for s_val in S_range]
+        # Correctly call based on function signature
+        if greek_name in ['Delta', 'Theta', 'Rho']:
+             greek_values = [greek_func(s_val, K, T_plot, r, sigma, option_type) for s_val in S_range]
+        else: # Gamma, Vega
+             greek_values = [greek_func(s_val, K, T_plot, r, sigma) for s_val in S_range]
+
         x_values = S_range
         x_title = "Stock Price ($)"
         current_val_marker = S
 
     elif plot_vs == 'Time (Days)':
-        T_days_range = np.linspace(max(1, T_days * 0.05), T_days, 100)  # Range from near 0 to current T
+        # Ensure T_days_range starts from a small positive value, not 0, if T_days is small
+        start_day = max(1, T_days * 0.05) if T_days > 0 else 1
+        end_day = max(start_day, T_days) # Ensure end >= start
+        T_days_range = np.linspace(start_day, end_day, 100)
+
         S_plot = S
-        greek_values = [greek_func(S_plot, K, t_val / 365.0, r, sigma, option_type) if greek_name != 'Gamma'
-                        else greek_func(S_plot, K, t_val / 365.0, r, sigma)
-                        for t_val in T_days_range]
+        # Correctly call based on function signature
+        if greek_name in ['Delta', 'Theta', 'Rho']:
+             greek_values = [greek_func(S_plot, K, t_val / 365.0, r, sigma, option_type) for t_val in T_days_range]
+        else: # Gamma, Vega
+             greek_values = [greek_func(S_plot, K, t_val / 365.0, r, sigma) for t_val in T_days_range]
+
         x_values = T_days_range
         x_title = "Time to Expiration (Days)"
         current_val_marker = T_days
 
-    else:  # Should not happen
-        return fig  # Return empty figure
+    else:
+        return fig # Return empty figure
 
+    # --- Rest of the plotting function remains the same ---
     # Remove NaNs which can occur at T=0 or S=0
     valid_indices = ~np.isnan(greek_values)
     x_values = np.array(x_values)[valid_indices]
@@ -215,11 +227,15 @@ def plot_greeks(greek_func, S, K, T_days, r_pct, sigma_pct, option_type, plot_vs
         fig.add_trace(go.Scatter(x=x_values, y=greek_values, mode='lines', name=greek_name))
 
         # Add marker for current value
-        current_greek = greek_func(S, K, T, r, sigma, option_type) if greek_name != 'Gamma' else greek_func(S, K, T, r,
-                                                                                                            sigma)
+        # Correctly call the specific greek function for the current value marker
+        if greek_name in ['Delta', 'Theta', 'Rho']:
+             current_greek = greek_func(S, K, T, r, sigma, option_type)
+        else: # Gamma, Vega
+             current_greek = greek_func(S, K, T, r, sigma)
+
         if not np.isnan(current_greek):
-            fig.add_trace(go.Scatter(x=[current_val_marker], y=[current_greek], mode='markers',
-                                     marker=dict(color='red', size=10), name='Current'))
+             fig.add_trace(go.Scatter(x=[current_val_marker], y=[current_greek], mode='markers',
+                                   marker=dict(color='red', size=10), name='Current'))
 
     fig.update_layout(
         title=f'{greek_name} vs. {plot_vs}',
