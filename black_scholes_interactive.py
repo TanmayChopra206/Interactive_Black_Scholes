@@ -2,14 +2,12 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from scipy.optimize import brentq  # More robust root finder than newton
+from scipy.optimize import brentq  # More efficient root finder than newton
 import plotly.graph_objects as go
 import math
 
 
-# ===========================================
 # Black-Scholes Formulas & Greeks
-# ===========================================
 
 def black_scholes(S, K, T, r, sigma, option_type='call'):
     """
@@ -33,7 +31,7 @@ def black_scholes(S, K, T, r, sigma, option_type='call'):
         elif option_type == 'put':
             return max(0, K - S)
         else:
-            return np.nan  # Should not happen with valid inputs
+            return np.nan  # incase of an invalid input
 
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
@@ -110,9 +108,8 @@ def rho(S, K, T, r, sigma, option_type='call'):
     return rho_val
 
 
-# ===========================================
 # Implied Volatility Calculation
-# ===========================================
+
 
 def implied_volatility(market_price, S, K, T, r, option_type='call', low_vol=1e-5, high_vol=5.0):
     """
@@ -175,9 +172,7 @@ def implied_volatility(market_price, S, K, T, r, option_type='call', low_vol=1e-
         return np.nan
 
 
-# ===========================================
 # Plotting Function
-# ===========================================
 
 def plot_greeks(greek_func, S, K, T_days, r_pct, sigma_pct, option_type, plot_vs='Stock Price'):
     """ Generates Plotly figure for a Greek vs. Stock Price or Time """
